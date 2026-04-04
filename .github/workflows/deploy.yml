@@ -36,5 +36,5 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
           server-dir: ./public_html/FinanceAgent/
-          # Borra archivos viejos para que solo queden los nuevos (opcional pero recomendado)
-          dangerous-clean-slate: false 
+          # Borrara archivos viejos para forzar la actualizacion total
+          dangerous-clean-slate: true 
