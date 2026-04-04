@@ -11,7 +11,9 @@ import {
   AlertCircle,
   Zap,
   Filter,
-  History
+  History,
+  Lock,
+  ChevronRight
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -35,10 +37,15 @@ import ExpenseForm from './components/ExpenseForm';
 
 const COLORS = ['#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16', '#6366f1'];
 const categories = ['Transporte', 'Alimentación', 'Vivienda', 'Salud', 'Entretenimiento', 'Suscripciones', 'Personal', 'Educación', 'Varios'];
+const MASTER_PIN = '3339';
 
 function App() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [stats, setStats] = useState({ 
     total: 0, 
@@ -50,7 +57,29 @@ function App() {
   });
   const [editingExpense, setEditingExpense] = useState(null);
 
+  // Check auth on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem('finance_agent_token');
+    if (savedToken === btoa(MASTER_PIN)) {
+      setIsAuthorized(true);
+    }
+  }, []);
+
+  const handleAuth = (e) => {
+    e?.preventDefault();
+    if (pinInput === MASTER_PIN) {
+      setIsAuthorized(true);
+      localStorage.setItem('finance_agent_token', btoa(MASTER_PIN));
+      setPinError(false);
+    } else {
+      setPinError(true);
+      setPinInput('');
+      setTimeout(() => setPinError(false), 2000);
+    }
+  };
+
   const fetchData = async () => {
+    if (!isAuthorized) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -103,8 +132,8 @@ function App() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (isAuthorized) fetchData();
+  }, [isAuthorized]);
 
   const monthlyHistoryData = useMemo(() => {
     return Object.entries(
@@ -144,6 +173,55 @@ function App() {
 
   const topExpenses = [...expenses].sort((a, b) => b.monto - a.monto).slice(0, 5);
 
+  // AUTH VIEW (THE WALL)
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#080808] flex items-center justify-center p-6 font-sans">
+        {/* Glow Effects */}
+        <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] bg-primary/20 blur-[150px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-blue-600/10 blur-[150px] rounded-full" />
+        
+        <div className="w-full max-w-md bg-[#111] border border-white/5 p-12 rounded-[48px] shadow-2xl relative z-10 text-center">
+            <div className="bg-gradient-to-tr from-primary to-blue-600 w-16 h-16 rounded-3xl mx-auto flex items-center justify-center mb-10 shadow-lg shadow-primary/20">
+              <Lock className="text-white" size={32} />
+            </div>
+            <h1 className="text-4xl font-black text-white tracking-widest uppercase italic mb-2">FinanceAgent</h1>
+            <p className="text-muted-foreground font-bold tracking-[0.3em] uppercase text-xs mb-10">Secure Access</p>
+            
+            <form onSubmit={handleAuth} className="space-y-6">
+               <div className="relative">
+                  <input 
+                    type="password" 
+                    placeholder="Enter Security PIN"
+                    className={`w-full bg-black border ${pinError ? 'border-destructive animate-shake' : 'border-white/10'} px-6 py-5 rounded-2xl text-center text-2xl font-black tracking-[1em] text-white outline-none focus:border-primary transition-all placeholder:tracking-normal placeholder:text-muted-foreground/30`}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    autoFocus
+                  />
+               </div>
+               <button 
+                  type="submit"
+                  className="w-full bg-white text-black font-black py-5 rounded-2xl flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all transform active:scale-95 text-sm uppercase tracking-widest"
+               >
+                  Verify Identity <ChevronRight size={18} />
+               </button>
+            </form>
+            {pinError && <p className="mt-6 text-destructive font-black text-xs uppercase tracking-widest animate-fade-in">Código PIN Incorrecto</p>}
+        </div>
+        
+        <style>{`
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+          }
+          .animate-shake { animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both; }
+        `}</style>
+      </div>
+    );
+  }
+
+  // MAIN DASHBOARD VIEW
   return (
     <div className="min-h-screen bg-[#080808] text-foreground font-sans selection:bg-primary/40 selection:text-white">
       <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-30">
@@ -159,14 +237,15 @@ function App() {
             </div>
             <div>
               <h1 className="text-xl font-black tracking-tight text-white uppercase italic">FinanceAgent</h1>
-              <p className="text-[10px] text-muted-foreground font-bold tracking-[0.2em] uppercase">V. 3.0</p>
+              <p className="text-[10px] text-muted-foreground font-bold tracking-[0.2em] uppercase">V. 3.2 Premium</p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="hidden md:flex flex-col items-end text-sm">
-              <span className="text-emerald-500 font-black tracking-tighter uppercase italic">Operativo</span>
-            </div>
-          </div>
+          <button 
+            onClick={() => { localStorage.removeItem('finance_agent_token'); setIsAuthorized(false); }}
+            className="text-[10px] font-black text-muted-foreground hover:text-white uppercase tracking-widest border border-white/10 px-4 py-2 rounded-xl"
+          >
+            Log Out
+          </button>
         </div>
       </header>
 
@@ -174,7 +253,7 @@ function App() {
         <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-12">
           <div>
             <h2 className="text-5xl font-black text-white tracking-tighter mb-3 leading-none italic uppercase">
-              Dashboard <span className="text-primary underline decoration-primary/30 underline-offset-8">Inteligente</span>
+              Finanzas <span className="text-primary underline decoration-primary/30 underline-offset-8">Inteligentes</span>
             </h2>
             <p className="text-muted-foreground text-lg font-medium max-w-xl italic">
               Visión total de tus finanzas en tiempo real.
@@ -194,7 +273,6 @@ function App() {
           {/* MAIN CHARTS AREA (Left) */}
           <div className="lg:col-span-8 space-y-8 w-full">
             
-            {/* 1. DAILY PEAKS (With Selector) */}
             <div className="bg-[#111] border border-white/5 p-8 rounded-[40px] shadow-2xl relative overflow-hidden">
                <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-10">
                   <div className="flex items-center gap-4">
@@ -232,7 +310,6 @@ function App() {
                </div>
             </div>
 
-            {/* 2. MONTHLY EVOLUTION (Back Again) */}
             <div className="bg-[#111] border border-white/5 p-8 rounded-[40px] shadow-2xl relative overflow-hidden group">
                <div className="flex items-center gap-3 mb-8">
                   <div className="w-1 h-8 bg-blue-600 rounded-full" />
@@ -251,7 +328,6 @@ function App() {
                 </div>
             </div>
 
-            {/* 3. CONCENTRATION (Pie Charts) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-[#111] border border-white/5 p-8 rounded-[40px] shadow-2xl">
                <div>
                   <h3 className="font-black text-xl text-white tracking-tight uppercase mb-8 italic">Distribución de Capital</h3>
