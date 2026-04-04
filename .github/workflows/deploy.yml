@@ -35,6 +35,6 @@ jobs:
           username: u238228052
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
-          server-dir: ./public_html/FinanceAgent/
+          server-dir: public_html/FinanceAgent/
           # Borrara archivos viejos para forzar la actualizacion total
           dangerous-clean-slate: true 
