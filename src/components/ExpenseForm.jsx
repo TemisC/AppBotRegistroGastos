@@ -3,8 +3,11 @@ import { Plus, X, Save } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const categories = [
-  'Transporte', 'Alimentación', 'Vivienda', 'Salud', 
-  'Entretenimiento', 'Suscripciones', 'Personal', 'Educación', 'Varios'
+  'Transporte', 'Alimentación', 'Vivienda', 'Salud',
+  'Entretenimiento', 'Suscripciones', 'Personal', 'Educación',
+  'Varios', 'Gastos del Negocio', 'Gastos del Negocio Tienda',
+  'Impuestos y Servicios', 'Ahorro e Inversión', 'Mascotas',
+  'Regalos', 'Ropa y Calzado'
 ];
 
 const ExpenseForm = ({ onAdd, onUpdate, editingExpense, onCancelEdit }) => {
@@ -33,7 +36,7 @@ const ExpenseForm = ({ onAdd, onUpdate, editingExpense, onCancelEdit }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
       if (editingExpense) {
         // UPDATE MODE
@@ -61,7 +64,7 @@ const ExpenseForm = ({ onAdd, onUpdate, editingExpense, onCancelEdit }) => {
         if (error) throw error;
         if (onAdd) onAdd(data[0]);
       }
-      
+
       closeForm();
     } catch (error) {
       alert('Error en la operación: ' + error.message);
@@ -96,17 +99,17 @@ const ExpenseForm = ({ onAdd, onUpdate, editingExpense, onCancelEdit }) => {
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card w-full max-w-md p-6 rounded-2xl border border-border shadow-2xl relative animate-in zoom-in-95 duration-200">
-        <button 
+        <button
           onClick={closeForm}
           className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
         >
           <X size={20} />
         </button>
-        
+
         <h2 className="text-xl font-bold mb-6">
           {editingExpense ? 'Editar Registro' : 'Nuevo Registro'}
         </h2>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-sm font-medium text-muted-foreground block mb-2">Monto ($)</label>
@@ -117,23 +120,23 @@ const ExpenseForm = ({ onAdd, onUpdate, editingExpense, onCancelEdit }) => {
               className="w-full bg-input border border-border p-3 rounded-xl focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all"
               placeholder="0.00"
               value={formData.monto}
-              onChange={(e) => setFormData({...formData, monto: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
             />
           </div>
-          
+
           <div>
             <label className="text-sm font-medium text-muted-foreground block mb-2">Categoría</label>
             <select
               className="w-full bg-input border border-border p-3 rounded-xl focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none appearance-none"
               value={formData.categoria}
-              onChange={(e) => setFormData({...formData, categoria: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
             >
               {categories.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
           </div>
-          
+
           <div>
             <label className="text-sm font-medium text-muted-foreground block mb-2">Descripción</label>
             <input
@@ -141,20 +144,20 @@ const ExpenseForm = ({ onAdd, onUpdate, editingExpense, onCancelEdit }) => {
               className="w-full bg-input border border-border p-3 rounded-xl focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none"
               placeholder="Ej. Cena en..."
               value={formData.descripcion}
-              onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
             />
           </div>
-          
+
           <div>
             <label className="text-sm font-medium text-muted-foreground block mb-2">Fecha</label>
             <input
               type="date"
               className="w-full bg-input border border-border p-3 rounded-xl focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none"
               value={formData.fecha_gasto}
-              onChange={(e) => setFormData({...formData, fecha_gasto: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, fecha_gasto: e.target.value })}
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={loading}
