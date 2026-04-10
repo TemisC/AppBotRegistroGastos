@@ -66,6 +66,7 @@ function App() {
     highestDay: { amount: 0, date: '' }
   });
   const [editingExpense, setEditingExpense] = useState(null);
+  const [selectedDateSummary, setSelectedDateSummary] = useState(null);
 
   // Check auth on mount
   useEffect(() => {
@@ -145,6 +146,21 @@ function App() {
     if (isAuthorized) fetchData();
   }, [isAuthorized]);
 
+  useEffect(() => {
+    if (selectedDateSummary) {
+      const dayExpenses = expenses.filter(e =>
+        e.fecha_gasto === selectedDateSummary.fullDate &&
+        (selectedCategory === 'Todas' || e.categoria === selectedCategory)
+      );
+      const dayTotal = dayExpenses.reduce((acc, curr) => acc + parseFloat(curr.monto), 0);
+      setSelectedDateSummary(prev => ({
+        ...prev,
+        expenses: dayExpenses,
+        total: dayTotal
+      }));
+    }
+  }, [selectedCategory, expenses]);
+
   const monthlyHistoryData = useMemo(() => {
     return Object.entries(
       expenses.reduce((acc, curr) => {
@@ -169,7 +185,8 @@ function App() {
 
       return {
         date: format(day, 'dd/MM'),
-        monto: dayTotal
+        monto: dayTotal,
+        fullDate: dateStr
       };
     });
   }, [expenses, selectedCategory]);
@@ -302,21 +319,86 @@ function App() {
                 </div>
               </div>
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dailyTimelineData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.01)" />
-                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 9 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 9 }} />
-                    <Tooltip contentStyle={{ backgroundColor: '#000', border: '1px solid #111', borderRadius: '16px' }} />
-                    <Bar dataKey="monto" fill="url(#picoGrad)" radius={[4, 4, 0, 0]} />
-                    <defs>
-                      <linearGradient id="picoGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#a855f7" />
-                        <stop offset="100%" stopColor="#3b82f6" />
-                      </linearGradient>
-                    </defs>
-                  </BarChart>
-                </ResponsiveContainer>
+                {selectedDateSummary ? (
+                  <div className="h-full flex flex-col animate-fade-in">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/20 p-2 rounded-xl">
+                          <Calendar size={16} className="text-primary" />
+                        </div>
+                        <div>
+                          <h4 className="text-white font-black uppercase text-xs tracking-widest leading-none">Detalle del Día</h4>
+                          <p className="text-muted-foreground text-[10px] font-bold mt-1">{selectedDateSummary.date} — Total: ${selectedDateSummary.total.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedDateSummary(null)}
+                        className="text-[10px] font-black text-muted-foreground hover:text-white uppercase tracking-widest bg-white/5 border border-white/10 px-4 py-2 rounded-xl transition-all hover:bg-white/10"
+                      >
+                        Volver a la Gráfica
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-2">
+                      {selectedDateSummary.expenses.length > 0 ? (
+                        selectedDateSummary.expenses.map((exp, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.04] transition-all">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <span className="text-[10px] font-black text-primary/60 bg-primary/10 px-2 py-0.5 rounded-lg border border-primary/10 whitespace-nowrap">
+                                {exp.categoria}
+                              </span>
+                              <span className="text-xs font-bold text-white truncate">{exp.descripcion || 'Sin descripción'}</span>
+                            </div>
+                            <span className="text-xs font-black text-white tabular-nums ml-4">${parseFloat(exp.monto).toLocaleString()}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-muted-foreground italic text-sm">
+                          No hay gastos este día para la categoría seleccionada
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dailyTimelineData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.01)" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 9 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 9 }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#000', border: '1px solid #111', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+                        itemStyle={{ color: '#a855f7', fontWeight: '900' }}
+                        cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                      />
+                      <Bar
+                        dataKey="monto"
+                        fill="url(#picoGrad)"
+                        radius={[4, 4, 0, 0]}
+                        style={{ cursor: 'pointer' }}
+                        onClick={(data) => {
+                          if (data && data.fullDate) {
+                            const dayExpenses = expenses.filter(e =>
+                              e.fecha_gasto === data.fullDate &&
+                              (selectedCategory === 'Todas' || e.categoria === selectedCategory)
+                            );
+                            setSelectedDateSummary({
+                              date: data.date,
+                              fullDate: data.fullDate,
+                              expenses: dayExpenses,
+                              total: data.monto
+                            });
+                          }
+                        }}
+                      />
+                      <defs>
+                        <linearGradient id="picoGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#a855f7" />
+                          <stop offset="100%" stopColor="#3b82f6" />
+                        </linearGradient>
+                      </defs>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -391,6 +473,14 @@ function App() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a855f7; }
         select option { background: #111; color: #fff; }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.4s ease-out forwards;
+        }
       `}</style>
 
       <ExpenseForm onAdd={fetchData} onUpdate={() => { fetchData(); setEditingExpense(null); }} editingExpense={editingExpense} onCancelEdit={() => setEditingExpense(null)} />
