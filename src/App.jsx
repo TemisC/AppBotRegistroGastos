@@ -475,7 +475,19 @@ function App() {
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.01)" />
                       <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 9 }} />
-                      <YAxis domain={[0, yAxisMax]} axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 9 }} />
+                      <YAxis
+                        domain={[0, yAxisMax]}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#444', fontSize: 9 }}
+                        tickFormatter={(val) => {
+                          if (val === yAxisMax && chartData.some(d => d.isOutlier)) {
+                            const realMax = Math.max(...chartData.map(d => d.monto));
+                            return `$${realMax.toLocaleString()}`;
+                          }
+                          return val;
+                        }}
+                      />
                       <Tooltip
                         contentStyle={{ backgroundColor: '#000', border: '1px solid #111', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
                         itemStyle={{ color: '#a855f7', fontWeight: '900' }}
@@ -487,6 +499,23 @@ function App() {
                         fill="url(#picoGrad)"
                         radius={[4, 4, 0, 0]}
                         style={{ cursor: 'pointer' }}
+                        label={(props) => {
+                          const { x, y, width, payload } = props;
+                          if (payload.isOutlier) {
+                            return (
+                              <text
+                                x={x + width / 2}
+                                y={y - 15}
+                                fill="#ef4444"
+                                textAnchor="middle"
+                                className="font-black text-[14px]"
+                              >
+                                ${payload.monto.toLocaleString()}
+                              </text>
+                            );
+                          }
+                          return null;
+                        }}
                         onClick={(data) => {
                           if (data && data.fullDate) {
                             const dayExpenses = expenses.filter(e =>
