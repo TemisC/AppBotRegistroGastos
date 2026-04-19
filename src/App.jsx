@@ -13,7 +13,9 @@ import {
   Filter,
   History,
   Lock,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import {
   BarChart,
@@ -57,6 +59,7 @@ function App() {
   const [pinError, setPinError] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState('Todas');
+  const [excludedCategories, setExcludedCategories] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
     today: 0,
@@ -67,6 +70,7 @@ function App() {
   });
   const [editingExpense, setEditingExpense] = useState(null);
   const [selectedDateSummary, setSelectedDateSummary] = useState(null);
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
 
   // Check auth on mount
   useEffect(() => {
@@ -150,7 +154,9 @@ function App() {
     if (selectedDateSummary) {
       const dayExpenses = expenses.filter(e =>
         e.fecha_gasto === selectedDateSummary.fullDate &&
-        (selectedCategory === 'Todas' || e.categoria === selectedCategory)
+        (selectedCategory === 'Todas'
+          ? !excludedCategories.includes(e.categoria)
+          : e.categoria === selectedCategory)
       );
       const dayTotal = dayExpenses.reduce((acc, curr) => acc + parseFloat(curr.monto), 0);
       setSelectedDateSummary(prev => ({
@@ -159,7 +165,7 @@ function App() {
         total: dayTotal
       }));
     }
-  }, [selectedCategory, expenses]);
+  }, [selectedCategory, excludedCategories, expenses]);
 
   const monthlyHistoryData = useMemo(() => {
     return Object.entries(
@@ -180,7 +186,12 @@ function App() {
     return days.map(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
       const dayTotal = expenses
-        .filter(e => e.fecha_gasto === dateStr && (selectedCategory === 'Todas' || e.categoria === selectedCategory))
+        .filter(e =>
+          e.fecha_gasto === dateStr &&
+          (selectedCategory === 'Todas'
+            ? !excludedCategories.includes(e.categoria)
+            : e.categoria === selectedCategory)
+        )
         .reduce((acc, curr) => acc + parseFloat(curr.monto), 0);
 
       return {
@@ -189,7 +200,7 @@ function App() {
         fullDate: dateStr
       };
     });
-  }, [expenses, selectedCategory]);
+  }, [expenses, selectedCategory, excludedCategories]);
 
   const categoryData = Object.entries(
     expenses.reduce((acc, curr) => {
@@ -306,16 +317,79 @@ function App() {
                   <div className="h-8 w-2 bg-primary rounded-full" />
                   <h3 className="font-black text-xl text-white tracking-tight uppercase">Análisis de Picos Diarios</h3>
                 </div>
-                <div className="flex items-center gap-3 bg-black/40 p-2 rounded-2xl border border-white/5">
-                  <Filter size={14} className="text-primary ml-2" />
-                  <select
-                    className="bg-transparent text-white font-bold text-sm outline-none cursor-pointer pr-4"
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
+                <div className="relative">
+                  <div
+                    className="flex items-center gap-3 bg-black/40 p-2 rounded-2xl border border-white/5 cursor-pointer hover:bg-black/60 transition-all"
+                    onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
                   >
-                    <option value="Todas">Categoría: Todas</option>
-                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                  </select>
+                    <Filter size={14} className="text-primary ml-2" />
+                    <span className="text-white font-bold text-sm pr-2">
+                      {selectedCategory === 'Todas'
+                        ? (excludedCategories.length > 0 ? `Todas (-${excludedCategories.length})` : 'Categoría: Todas')
+                        : selectedCategory}
+                    </span>
+                    <ChevronDown size={14} className="text-white/40" />
+                  </div>
+
+                  {isCategoryMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsCategoryMenuOpen(false)} />
+                      <div className="absolute right-0 mt-2 w-64 bg-[#111] border border-white/10 rounded-[24px] shadow-2xl z-50 overflow-hidden animate-fade-in">
+                        <div className="p-2 space-y-1">
+                          <div
+                            onClick={() => {
+                              setSelectedCategory('Todas');
+                              setIsCategoryMenuOpen(false);
+                              if (selectedCategory !== 'Todas') setExcludedCategories([]);
+                            }}
+                            className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all ${selectedCategory === 'Todas' ? 'bg-primary/20 text-white' : 'hover:bg-white/5 text-white/60'}`}
+                          >
+                            <span className="text-xs font-black uppercase tracking-wider">Todas las Categorías</span>
+                            {selectedCategory === 'Todas' && <Check size={14} className="text-primary" />}
+                          </div>
+
+                          <div className="h-[1px] bg-white/5 my-1 mx-2" />
+
+                          <div className="max-h-[350px] overflow-y-auto custom-scrollbar py-1">
+                            {categories.map(cat => {
+                              const isExcluded = excludedCategories.includes(cat);
+                              const isSelected = selectedCategory === cat;
+                              return (
+                                <div
+                                  key={cat}
+                                  className={`flex items-center justify-between px-4 py-2 rounded-xl cursor-pointer transition-all group ${isSelected ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/60'}`}
+                                  onClick={() => {
+                                    setSelectedCategory(cat);
+                                    setIsCategoryMenuOpen(false);
+                                    setExcludedCategories([]);
+                                  }}
+                                >
+                                  <span className="text-xs font-bold">{cat}</span>
+
+                                  <div className="flex items-center gap-2">
+                                    {selectedCategory === 'Todas' && (
+                                      <div
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExcludedCategories(prev =>
+                                            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+                                          );
+                                        }}
+                                        className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${isExcluded ? 'bg-red-500/20 border-red-500/50' : 'bg-black/40 border-white/10 hover:border-white/30'}`}
+                                      >
+                                        {isExcluded && <Check size={12} className="text-red-500" />}
+                                      </div>
+                                    )}
+                                    {isSelected && <Check size={14} className="text-primary" />}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="h-[300px]">
@@ -379,7 +453,9 @@ function App() {
                           if (data && data.fullDate) {
                             const dayExpenses = expenses.filter(e =>
                               e.fecha_gasto === data.fullDate &&
-                              (selectedCategory === 'Todas' || e.categoria === selectedCategory)
+                              (selectedCategory === 'Todas'
+                                ? !excludedCategories.includes(e.categoria)
+                                : e.categoria === selectedCategory)
                             );
                             setSelectedDateSummary({
                               date: data.date,
