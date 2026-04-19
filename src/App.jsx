@@ -71,6 +71,7 @@ function App() {
   const [editingExpense, setEditingExpense] = useState(null);
   const [selectedDateSummary, setSelectedDateSummary] = useState(null);
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const [useSmartScale, setUseSmartScale] = useState(true);
 
   // Check auth on mount
   useEffect(() => {
@@ -202,6 +203,31 @@ function App() {
     });
   }, [expenses, selectedCategory, excludedCategories]);
 
+  const { chartData, yAxisMax } = useMemo(() => {
+    const data = dailyTimelineData;
+    const values = data.map(d => d.monto).filter(v => v > 0).sort((a, b) => b - a);
+
+    let max = 'auto';
+    if (useSmartScale && values.length >= 2) {
+      const highest = values[0];
+      const secondHighest = values[1];
+      const thirdHighest = values[2] || secondHighest;
+
+      // Si el más alto es más de 3 veces el segundo, aplicar tope inteligente
+      if (highest > secondHighest * 3) {
+        max = Math.max(secondHighest * 1.2, thirdHighest * 1.5);
+      }
+    }
+
+    const processedData = data.map(d => ({
+      ...d,
+      displayMonto: max === 'auto' ? d.monto : Math.min(d.monto, max),
+      isOutlier: max !== 'auto' && d.monto > max
+    }));
+
+    return { chartData: processedData, yAxisMax: max };
+  }, [dailyTimelineData, useSmartScale]);
+
   const categoryData = Object.entries(
     expenses.reduce((acc, curr) => {
       acc[curr.categoria] = (acc[curr.categoria] || 0) + parseFloat(curr.monto);
@@ -317,79 +343,90 @@ function App() {
                   <div className="h-8 w-2 bg-primary rounded-full" />
                   <h3 className="font-black text-xl text-white tracking-tight uppercase">Análisis de Picos Diarios</h3>
                 </div>
-                <div className="relative">
+                <div className="flex items-center gap-3">
                   <div
-                    className="flex items-center gap-3 bg-black/40 p-2 rounded-2xl border border-white/5 cursor-pointer hover:bg-black/60 transition-all"
-                    onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
+                    onClick={() => setUseSmartScale(!useSmartScale)}
+                    className={`flex items-center gap-2 p-2 rounded-2xl border cursor-pointer transition-all ${useSmartScale ? 'bg-primary/20 border-primary text-primary' : 'bg-black/40 border-white/5 text-white/40 hover:text-white'}`}
+                    title={useSmartScale ? "Desactivar Escala Inteligente" : "Activar Escala Inteligente"}
                   >
-                    <Filter size={14} className="text-primary ml-2" />
-                    <span className="text-white font-bold text-sm pr-2">
-                      {selectedCategory === 'Todas'
-                        ? (excludedCategories.length > 0 ? `Todas (-${excludedCategories.length})` : 'Categoría: Todas')
-                        : selectedCategory}
-                    </span>
-                    <ChevronDown size={14} className="text-white/40" />
+                    <TrendingUp size={14} className={useSmartScale ? 'animate-pulse' : ''} />
+                    <span className="text-[10px] font-black uppercase hidden md:inline">{useSmartScale ? 'Escala: Smart' : 'Escala: Normal'}</span>
                   </div>
 
-                  {isCategoryMenuOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsCategoryMenuOpen(false)} />
-                      <div className="absolute right-0 mt-2 w-64 bg-[#111] border border-white/10 rounded-[24px] shadow-2xl z-50 overflow-hidden animate-fade-in">
-                        <div className="p-2 space-y-1">
-                          <div
-                            onClick={() => {
-                              setSelectedCategory('Todas');
-                              setIsCategoryMenuOpen(false);
-                              if (selectedCategory !== 'Todas') setExcludedCategories([]);
-                            }}
-                            className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all ${selectedCategory === 'Todas' ? 'bg-primary/20 text-white' : 'hover:bg-white/5 text-white/60'}`}
-                          >
-                            <span className="text-xs font-black uppercase tracking-wider">Todas las Categorías</span>
-                            {selectedCategory === 'Todas' && <Check size={14} className="text-primary" />}
-                          </div>
+                  <div className="relative">
+                    <div
+                      className="flex items-center gap-3 bg-black/40 p-2 rounded-2xl border border-white/5 cursor-pointer hover:bg-black/60 transition-all"
+                      onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
+                    >
+                      <Filter size={14} className="text-primary ml-2" />
+                      <span className="text-white font-bold text-sm pr-2">
+                        {selectedCategory === 'Todas'
+                          ? (excludedCategories.length > 0 ? `Todas (-${excludedCategories.length})` : 'Categoría: Todas')
+                          : selectedCategory}
+                      </span>
+                      <ChevronDown size={14} className="text-white/40" />
+                    </div>
 
-                          <div className="h-[1px] bg-white/5 my-1 mx-2" />
+                    {isCategoryMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsCategoryMenuOpen(false)} />
+                        <div className="absolute right-0 mt-2 w-64 bg-[#111] border border-white/10 rounded-[24px] shadow-2xl z-50 overflow-hidden animate-fade-in">
+                          <div className="p-2 space-y-1">
+                            <div
+                              onClick={() => {
+                                setSelectedCategory('Todas');
+                                setIsCategoryMenuOpen(false);
+                                if (selectedCategory !== 'Todas') setExcludedCategories([]);
+                              }}
+                              className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all ${selectedCategory === 'Todas' ? 'bg-primary/20 text-white' : 'hover:bg-white/5 text-white/60'}`}
+                            >
+                              <span className="text-xs font-black uppercase tracking-wider">Todas las Categorías</span>
+                              {selectedCategory === 'Todas' && <Check size={14} className="text-primary" />}
+                            </div>
 
-                          <div className="max-h-[350px] overflow-y-auto custom-scrollbar py-1">
-                            {categories.map(cat => {
-                              const isExcluded = excludedCategories.includes(cat);
-                              const isSelected = selectedCategory === cat;
-                              return (
-                                <div
-                                  key={cat}
-                                  className={`flex items-center justify-between px-4 py-2 rounded-xl cursor-pointer transition-all group ${isSelected ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/60'}`}
-                                  onClick={() => {
-                                    setSelectedCategory(cat);
-                                    setIsCategoryMenuOpen(false);
-                                    setExcludedCategories([]);
-                                  }}
-                                >
-                                  <span className="text-xs font-bold">{cat}</span>
+                            <div className="h-[1px] bg-white/5 my-1 mx-2" />
 
-                                  <div className="flex items-center gap-2">
-                                    {selectedCategory === 'Todas' && (
-                                      <div
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setExcludedCategories(prev =>
-                                            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-                                          );
-                                        }}
-                                        className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${isExcluded ? 'bg-red-500/20 border-red-500/50' : 'bg-black/40 border-white/10 hover:border-white/30'}`}
-                                      >
-                                        {isExcluded && <Check size={12} className="text-red-500" />}
-                                      </div>
-                                    )}
-                                    {isSelected && <Check size={14} className="text-primary" />}
+                            <div className="max-h-[350px] overflow-y-auto custom-scrollbar py-1">
+                              {categories.map(cat => {
+                                const isExcluded = excludedCategories.includes(cat);
+                                const isSelected = selectedCategory === cat;
+                                return (
+                                  <div
+                                    key={cat}
+                                    className={`flex items-center justify-between px-4 py-2 rounded-xl cursor-pointer transition-all group ${isSelected ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/60'}`}
+                                    onClick={() => {
+                                      setSelectedCategory(cat);
+                                      setIsCategoryMenuOpen(false);
+                                      setExcludedCategories([]);
+                                    }}
+                                  >
+                                    <span className="text-xs font-bold">{cat}</span>
+
+                                    <div className="flex items-center gap-2">
+                                      {selectedCategory === 'Todas' && (
+                                        <div
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExcludedCategories(prev =>
+                                              prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+                                            );
+                                          }}
+                                          className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${isExcluded ? 'bg-red-500/20 border-red-500/50' : 'bg-black/40 border-white/10 hover:border-white/30'}`}
+                                        >
+                                          {isExcluded && <Check size={12} className="text-red-500" />}
+                                        </div>
+                                      )}
+                                      {isSelected && <Check size={14} className="text-primary" />}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="h-[300px]">
@@ -435,17 +472,18 @@ function App() {
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dailyTimelineData}>
+                    <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.01)" />
                       <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 9 }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 9 }} />
+                      <YAxis domain={[0, yAxisMax]} axisLine={false} tickLine={false} tick={{ fill: '#444', fontSize: 9 }} />
                       <Tooltip
                         contentStyle={{ backgroundColor: '#000', border: '1px solid #111', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
                         itemStyle={{ color: '#a855f7', fontWeight: '900' }}
                         cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                        formatter={(value, name, props) => [`$${props.payload.monto.toLocaleString()}`, 'Monto']}
                       />
                       <Bar
-                        dataKey="monto"
+                        dataKey="displayMonto"
                         fill="url(#picoGrad)"
                         radius={[4, 4, 0, 0]}
                         style={{ cursor: 'pointer' }}
@@ -465,11 +503,22 @@ function App() {
                             });
                           }
                         }}
-                      />
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={entry.isOutlier ? 'url(#outlierGrad)' : 'url(#picoGrad)'}
+                          />
+                        ))}
+                      </Bar>
                       <defs>
                         <linearGradient id="picoGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#a855f7" />
                           <stop offset="100%" stopColor="#3b82f6" />
+                        </linearGradient>
+                        <linearGradient id="outlierGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#ef4444" />
+                          <stop offset="100%" stopColor="#a855f7" />
                         </linearGradient>
                       </defs>
                     </BarChart>
