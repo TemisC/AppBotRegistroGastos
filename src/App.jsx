@@ -500,21 +500,21 @@ function App() {
                         radius={[4, 4, 0, 0]}
                         style={{ cursor: 'pointer' }}
                         label={(props) => {
-                          const { x, y, width, payload } = props;
-                          if (payload.isOutlier) {
-                            return (
-                              <text
-                                x={x + width / 2}
-                                y={y - 15}
-                                fill="#ef4444"
-                                textAnchor="middle"
-                                className="font-black text-[14px]"
-                              >
-                                ${payload.monto.toLocaleString()}
-                              </text>
-                            );
-                          }
-                          return null;
+                          const { x, y, width, isOutlier, monto } = props;
+                          if (!isOutlier || monto == null) return null;
+                          return (
+                            <text
+                              x={x + width / 2}
+                              y={y - 10}
+                              fill="#ef4444"
+                              textAnchor="middle"
+                              fontSize={11}
+                              fontWeight="900"
+                              fontFamily="inherit"
+                            >
+                              ${monto.toLocaleString()}
+                            </text>
+                          );
                         }}
                         onClick={(data) => {
                           if (data && data.fullDate) {
