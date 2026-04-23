@@ -15,7 +15,9 @@ import {
   Lock,
   ChevronRight,
   ChevronDown,
-  Check
+  Check,
+  Search,
+  X
 } from 'lucide-react';
 import {
   BarChart,
@@ -72,6 +74,7 @@ function App() {
   const [selectedDateSummary, setSelectedDateSummary] = useState(null);
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [useSmartScale, setUseSmartScale] = useState(true);
+  const [journalSearch, setJournalSearch] = useState('');
 
   // Check auth on mount
   useEffect(() => {
@@ -622,12 +625,44 @@ function App() {
           {/* SIDEBAR AREA (Right) */}
           <div className="lg:col-span-4 w-full h-full">
             <div className="bg-[#111] border border-white/5 p-8 rounded-[40px] shadow-2xl flex flex-col h-[600px] lg:h-[calc(100vh-250px)] lg:sticky lg:top-32">
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="font-black text-xs text-white uppercase tracking-[0.3em] italic">Journal Diario</h3>
                 <div className="px-2 py-1 bg-primary/20 text-primary text-[10px] font-black rounded uppercase">Live</div>
               </div>
+              <div className="relative mb-4">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+                <input
+                  type="text"
+                  value={journalSearch}
+                  onChange={e => setJournalSearch(e.target.value)}
+                  placeholder="Buscar gasto..."
+                  className="w-full bg-black/40 border border-white/5 rounded-2xl pl-8 pr-8 py-2.5 text-xs text-white placeholder:text-white/20 outline-none focus:border-primary/40 transition-all"
+                />
+                {journalSearch && (
+                  <button
+                    onClick={() => setJournalSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                <ExpenseList expenses={expenses} loading={loading} onDelete={handleDelete} onEdit={setEditingExpense} />
+                <ExpenseList
+                  expenses={expenses.filter(e => {
+                    if (!journalSearch.trim()) return true;
+                    const q = journalSearch.toLowerCase();
+                    return (
+                      (e.descripcion || '').toLowerCase().includes(q) ||
+                      e.categoria.toLowerCase().includes(q) ||
+                      e.fecha_gasto.includes(q) ||
+                      String(e.monto).includes(q)
+                    );
+                  })}
+                  loading={loading}
+                  onDelete={handleDelete}
+                  onEdit={setEditingExpense}
+                />
               </div>
             </div>
           </div>
