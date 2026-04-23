@@ -170,13 +170,17 @@ function App() {
 
   const monthlyHistoryData = useMemo(() => {
     return Object.entries(
-      expenses.reduce((acc, curr) => {
-        const month = String(curr.fecha_gasto).substring(0, 7);
-        acc[month] = (acc[month] || 0) + parseFloat(curr.monto);
-        return acc;
-      }, {})
+      expenses
+        .filter(e => selectedCategory === 'Todas'
+          ? !excludedCategories.includes(e.categoria)
+          : e.categoria === selectedCategory)
+        .reduce((acc, curr) => {
+          const month = String(curr.fecha_gasto).substring(0, 7);
+          acc[month] = (acc[month] || 0) + parseFloat(curr.monto);
+          return acc;
+        }, {})
     ).map(([name, value]) => ({ name, value })).reverse().slice(0, 6);
-  }, [expenses]);
+  }, [expenses, selectedCategory, excludedCategories]);
 
   const dailyTimelineData = useMemo(() => {
     const days = eachDayOfInterval({
@@ -202,6 +206,10 @@ function App() {
       };
     });
   }, [expenses, selectedCategory, excludedCategories]);
+
+  const categoryMonthTotal = useMemo(() => {
+    return dailyTimelineData.reduce((acc, d) => acc + d.monto, 0);
+  }, [dailyTimelineData]);
 
   const { chartData, yAxisMax } = useMemo(() => {
     const data = dailyTimelineData;
@@ -429,6 +437,13 @@ function App() {
                   </div>
                 </div>
               </div>
+              {selectedCategory !== 'Todas' && (
+                <p className="text-xs font-bold text-white/50 mb-6 -mt-4">
+                  Categoría <span className="text-primary font-black">{selectedCategory}</span>
+                  <span className="text-white/30 mx-2">·</span>
+                  Total: <span className="text-white font-black">${categoryMonthTotal.toLocaleString()}</span>
+                </p>
+              )}
               <div className="h-[300px]">
                 {selectedDateSummary ? (
                   <div className="h-full flex flex-col animate-fade-in">
