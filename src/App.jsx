@@ -348,7 +348,7 @@ function App() {
           {/* MAIN CHARTS AREA (Left) */}
           <div className="lg:col-span-8 space-y-8 w-full">
 
-            <div className="bg-[#111] border border-white/5 p-8 rounded-[40px] shadow-2xl relative overflow-hidden">
+            <div className="bg-[#111] border border-white/5 p-8 rounded-[40px] shadow-2xl relative">
               <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-10">
                 <div className="flex items-center gap-4">
                   <div className="h-8 w-2 bg-primary rounded-full" />
