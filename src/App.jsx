@@ -17,7 +17,8 @@ import {
   ChevronDown,
   Check,
   Search,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import {
   BarChart,
@@ -47,6 +48,7 @@ import { supabase } from './lib/supabase';
 import StatCard from './components/StatCard';
 import ExpenseList from './components/ExpenseList';
 import ExpenseForm from './components/ExpenseForm';
+import ReportGenerator from './components/ReportGenerator';
 
 const COLORS = [
   '#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
@@ -63,6 +65,7 @@ const categories = [
 const MASTER_PIN = '3339';
 
 function App() {
+  const [currentView, setCurrentView] = useState('dashboard');
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -348,6 +351,10 @@ function App() {
     );
   }
 
+  if (currentView === 'reports') {
+    return <ReportGenerator expenses={expenses} onBack={() => setCurrentView('dashboard')} />;
+  }
+
   // MAIN DASHBOARD VIEW
   return (
     <div className="min-h-screen bg-[#080808] text-foreground font-sans selection:bg-primary/40 selection:text-white">
@@ -367,12 +374,20 @@ function App() {
               <p className="text-[10px] text-muted-foreground font-bold tracking-[0.2em] uppercase">V. 3.2 Premium</p>
             </div>
           </div>
-          <button
-            onClick={() => { localStorage.removeItem('finance_agent_token'); setIsAuthorized(false); }}
-            className="text-[10px] font-black text-muted-foreground hover:text-white uppercase tracking-widest border border-white/10 px-4 py-2 rounded-xl"
-          >
-            Log Out
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setCurrentView('reports')}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/10 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+            >
+              <FileText size={14} /> Reportes
+            </button>
+            <button
+              onClick={() => { localStorage.removeItem('finance_agent_token'); setIsAuthorized(false); }}
+              className="text-[10px] font-black text-muted-foreground hover:text-white uppercase tracking-widest border border-white/10 px-4 py-2 rounded-xl transition-all hover:bg-white/5"
+            >
+              Log Out
+            </button>
+          </div>
         </div>
       </header>
 
