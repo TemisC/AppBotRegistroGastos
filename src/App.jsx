@@ -32,8 +32,17 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { format, eachDayOfInterval, startOfMonth, endOfMonth, subDays } from 'date-fns';
+import { format, eachDayOfInterval, startOfMonth, endOfMonth, subMonths, isBefore } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+const DATE_FILTERS = {
+  'mes_actual': 'Mes Actual',
+  'mes_anterior': 'Mes Anterior',
+  'ultimos_3_meses': 'Últimos 3 Meses',
+  'ultimos_6_meses': 'Últimos 6 Meses',
+  'ultimo_ano': 'Último Año',
+  'todos': 'Todos'
+};
 import { supabase } from './lib/supabase';
 import StatCard from './components/StatCard';
 import ExpenseList from './components/ExpenseList';
@@ -62,19 +71,72 @@ function App() {
 
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [excludedCategories, setExcludedCategories] = useState([]);
-  const [stats, setStats] = useState({
-    total: 0,
-    today: 0,
-    count: 0,
-    avgDaily: 0,
-    topCategory: '',
-    highestDay: { amount: 0, date: '' }
-  });
+  const [dateFilter, setDateFilter] = useState('mes_actual');
+  const [isDateFilterMenuOpen, setIsDateFilterMenuOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [selectedDateSummary, setSelectedDateSummary] = useState(null);
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [useSmartScale, setUseSmartScale] = useState(true);
   const [journalSearch, setJournalSearch] = useState('');
+
+  const getDateRange = (filter) => {
+    const today = new Date();
+    switch (filter) {
+      case 'mes_actual':
+        return { start: startOfMonth(today), end: endOfMonth(today) };
+      case 'mes_anterior': {
+        const lastMonth = subMonths(today, 1);
+        return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+      }
+      case 'ultimos_3_meses':
+        return { start: startOfMonth(subMonths(today, 2)), end: endOfMonth(today) };
+      case 'ultimos_6_meses':
+        return { start: startOfMonth(subMonths(today, 5)), end: endOfMonth(today) };
+      case 'ultimo_ano':
+        return { start: startOfMonth(subMonths(today, 11)), end: endOfMonth(today) };
+      case 'todos':
+      default:
+        return { start: null, end: null };
+    }
+  };
+
+  const { start: startDate, end: endDate } = useMemo(() => getDateRange(dateFilter), [dateFilter]);
+
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(e => {
+      if (!startDate || !endDate) return true;
+      const expenseDate = e.fecha_gasto;
+      const startStr = format(startDate, 'yyyy-MM-dd');
+      const endStr = format(endDate, 'yyyy-MM-dd');
+      return expenseDate >= startStr && expenseDate <= endStr;
+    });
+  }, [expenses, startDate, endDate]);
+
+  const stats = useMemo(() => {
+    const total = filteredExpenses.reduce((acc, curr) => acc + parseFloat(curr.monto), 0);
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const today = filteredExpenses.filter(e => e.fecha_gasto === todayStr).reduce((acc, curr) => acc + parseFloat(curr.monto), 0);
+    const uniqueDays = new Set(filteredExpenses.map(e => e.fecha_gasto)).size || 1;
+    const avgDaily = total / uniqueDays;
+
+    const dailyTotals = filteredExpenses.reduce((acc, curr) => {
+      acc[curr.fecha_gasto] = (acc[curr.fecha_gasto] || 0) + parseFloat(curr.monto);
+      return acc;
+    }, {});
+
+    let highestDay = { amount: 0, date: 'N/A' };
+    Object.entries(dailyTotals).forEach(([date, amount]) => {
+      if (amount > highestDay.amount) highestDay = { amount, date };
+    });
+
+    const catTotals = filteredExpenses.reduce((acc, curr) => {
+      acc[curr.categoria] = (acc[curr.categoria] || 0) + parseFloat(curr.monto);
+      return acc;
+    }, {});
+    const topCat = Object.entries(catTotals).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+
+    return { total, today, count: filteredExpenses.length, avgDaily, topCategory: topCat, highestDay };
+  }, [filteredExpenses]);
 
   // Check auth on mount
   useEffect(() => {
@@ -107,32 +169,7 @@ function App() {
         .order('fecha_gasto', { ascending: false });
 
       if (error) throw error;
-      const allExpenses = data || [];
-      setExpenses(allExpenses);
-
-      const total = allExpenses.reduce((acc, curr) => acc + parseFloat(curr.monto), 0);
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
-      const today = allExpenses.filter(e => e.fecha_gasto === todayStr).reduce((acc, curr) => acc + parseFloat(curr.monto), 0);
-      const uniqueDays = new Set(allExpenses.map(e => e.fecha_gasto)).size || 1;
-      const avgDaily = total / uniqueDays;
-
-      const dailyTotals = allExpenses.reduce((acc, curr) => {
-        acc[curr.fecha_gasto] = (acc[curr.fecha_gasto] || 0) + parseFloat(curr.monto);
-        return acc;
-      }, {});
-
-      let highestDay = { amount: 0, date: 'N/A' };
-      Object.entries(dailyTotals).forEach(([date, amount]) => {
-        if (amount > highestDay.amount) highestDay = { amount, date };
-      });
-
-      const catTotals = allExpenses.reduce((acc, curr) => {
-        acc[curr.categoria] = (acc[curr.categoria] || 0) + parseFloat(curr.monto);
-        return acc;
-      }, {});
-      const topCat = Object.entries(catTotals).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
-
-      setStats({ total, today, count: allExpenses.length, avgDaily, topCategory: topCat, highestDay });
+      setExpenses(data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -156,7 +193,7 @@ function App() {
 
   useEffect(() => {
     if (selectedDateSummary) {
-      const dayExpenses = expenses.filter(e =>
+      const dayExpenses = filteredExpenses.filter(e =>
         e.fecha_gasto === selectedDateSummary.fullDate &&
         (selectedCategory === 'Todas'
           ? !excludedCategories.includes(e.categoria)
@@ -169,11 +206,11 @@ function App() {
         total: dayTotal
       }));
     }
-  }, [selectedCategory, excludedCategories, expenses]);
+  }, [selectedCategory, excludedCategories, filteredExpenses]);
 
   const monthlyHistoryData = useMemo(() => {
     return Object.entries(
-      expenses
+      filteredExpenses
         .filter(e => selectedCategory === 'Todas'
           ? !excludedCategories.includes(e.categoria)
           : e.categoria === selectedCategory)
@@ -182,18 +219,33 @@ function App() {
           acc[month] = (acc[month] || 0) + parseFloat(curr.monto);
           return acc;
         }, {})
-    ).map(([name, value]) => ({ name, value })).reverse().slice(0, 6);
-  }, [expenses, selectedCategory, excludedCategories]);
+    ).map(([name, value]) => ({ name, value })).sort((a, b) => a.name.localeCompare(b.name)).slice(-6);
+  }, [filteredExpenses, selectedCategory, excludedCategories]);
 
   const dailyTimelineData = useMemo(() => {
+    let startInterval = startDate;
+    let endInterval = endDate;
+
+    if (!startInterval || !endInterval) {
+      if (filteredExpenses.length === 0) {
+        startInterval = startOfMonth(new Date());
+        endInterval = endOfMonth(new Date());
+      } else {
+        const dates = filteredExpenses.map(e => e.fecha_gasto).sort();
+        startInterval = new Date(dates[0] + 'T00:00:00');
+        endInterval = new Date(dates[dates.length - 1] + 'T00:00:00');
+        if (isBefore(endInterval, startInterval)) endInterval = startInterval;
+      }
+    }
+
     const days = eachDayOfInterval({
-      start: startOfMonth(new Date()),
-      end: endOfMonth(new Date())
+      start: startInterval,
+      end: endInterval
     });
 
     return days.map(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
-      const dayTotal = expenses
+      const dayTotal = filteredExpenses
         .filter(e =>
           e.fecha_gasto === dateStr &&
           (selectedCategory === 'Todas'
@@ -208,7 +260,7 @@ function App() {
         fullDate: dateStr
       };
     });
-  }, [expenses, selectedCategory, excludedCategories]);
+  }, [filteredExpenses, selectedCategory, excludedCategories, startDate, endDate]);
 
   const categoryMonthTotal = useMemo(() => {
     return dailyTimelineData.reduce((acc, d) => acc + d.monto, 0);
@@ -240,13 +292,13 @@ function App() {
   }, [dailyTimelineData, useSmartScale]);
 
   const categoryData = Object.entries(
-    expenses.reduce((acc, curr) => {
+    filteredExpenses.reduce((acc, curr) => {
       acc[curr.categoria] = (acc[curr.categoria] || 0) + parseFloat(curr.monto);
       return acc;
     }, {})
   ).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
-  const topExpenses = [...expenses].sort((a, b) => b.monto - a.monto).slice(0, 5);
+  const topExpenses = [...filteredExpenses].sort((a, b) => b.monto - a.monto).slice(0, 5);
 
   // AUTH VIEW (THE WALL)
   if (!isAuthorized) {
@@ -333,6 +385,41 @@ function App() {
             <p className="text-muted-foreground text-lg font-medium max-w-xl italic">
               Visión total de tus finanzas en tiempo real.
             </p>
+          </div>
+          <div className="relative z-20">
+            <div
+              className="flex items-center gap-3 bg-[#111] px-5 py-3 rounded-2xl border border-white/10 cursor-pointer hover:bg-white/5 transition-all shadow-lg"
+              onClick={() => setIsDateFilterMenuOpen(!isDateFilterMenuOpen)}
+            >
+              <Calendar size={18} className="text-primary" />
+              <span className="text-white font-black text-sm uppercase tracking-wider">
+                {DATE_FILTERS[dateFilter]}
+              </span>
+              <ChevronDown size={16} className="text-white/40 ml-2" />
+            </div>
+
+            {isDateFilterMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsDateFilterMenuOpen(false)} />
+                <div className="absolute right-0 mt-2 w-56 bg-[#111] border border-white/10 rounded-[24px] shadow-2xl z-50 overflow-hidden animate-fade-in">
+                  <div className="p-2 space-y-1">
+                    {Object.entries(DATE_FILTERS).map(([key, label]) => (
+                      <div
+                        key={key}
+                        onClick={() => {
+                          setDateFilter(key);
+                          setIsDateFilterMenuOpen(false);
+                        }}
+                        className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all ${dateFilter === key ? 'bg-primary/20 text-white' : 'hover:bg-white/5 text-white/60'}`}
+                      >
+                        <span className="text-xs font-black uppercase tracking-wider">{label}</span>
+                        {dateFilter === key && <Check size={14} className="text-primary" />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </section>
 
@@ -649,7 +736,7 @@ function App() {
               </div>
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                 <ExpenseList
-                  expenses={expenses.filter(e => {
+                  expenses={filteredExpenses.filter(e => {
                     if (!journalSearch.trim()) return true;
                     const q = journalSearch.toLowerCase();
                     return (
