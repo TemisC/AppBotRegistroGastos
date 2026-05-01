@@ -6,7 +6,8 @@ import { ChevronLeft, FileText, Printer, Calendar, PieChart } from 'lucide-react
 const REPORT_RANGES = {
   'mes_pasado': 'Mes Pasado',
   'ultimos_3_meses': 'Últimos 3 Meses',
-  'ultimos_6_meses': 'Últimos 6 Meses'
+  'ultimos_6_meses': 'Últimos 6 Meses',
+  'ultimo_ano': 'Último Año'
 };
 
 const ReportGenerator = ({ expenses, onBack }) => {
@@ -23,6 +24,8 @@ const ReportGenerator = ({ expenses, onBack }) => {
         return { start: startOfMonth(subMonths(today, 2)), end: endOfMonth(today) };
       case 'ultimos_6_meses':
         return { start: startOfMonth(subMonths(today, 5)), end: endOfMonth(today) };
+      case 'ultimo_ano':
+        return { start: startOfMonth(subMonths(today, 11)), end: endOfMonth(today) };
       default:
         return { start: startOfMonth(today), end: endOfMonth(today) };
     }
@@ -149,6 +152,7 @@ const ReportGenerator = ({ expenses, onBack }) => {
                   <div className="flex items-center justify-between border-b border-black/10 pb-3 mb-4">
                     <h3 className="text-lg font-black uppercase tracking-wider text-black flex items-center gap-2">
                       <PieChart size={18} className="text-primary" /> {category.name}
+                      <span className="text-sm text-black/40 ml-2 font-bold bg-black/5 px-2 py-0.5 rounded-lg">{Math.round((category.total / totalAmount) * 100)}%</span>
                     </h3>
                     <span className="text-lg font-black text-black">
                       ${category.total.toLocaleString()}
